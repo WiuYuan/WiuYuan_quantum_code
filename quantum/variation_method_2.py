@@ -8,17 +8,21 @@ import matplotlib.pyplot as plt
 
 K=tc.set_backend("tensorflow")
 
-N=4;J=0;U=random.random();dt=0.01;t=2;h=[];r=0;L_var=[];L_num=[];x_value=[];
+N=3;J=random.random();U=random.random();dt=0.0001;t=1;h=[];r=0;L_var=[];L_num=[];x_value=[];
 N_num=np.zeros((int(t/dt),1));N_tro=np.zeros((int(t/dt),1));
-door=[];h_door=[]
-#the first 0x,1y,2z,3cx,4cy,5cz;the second num/ctrl+num
-for i in range(N):
-    door.append([0,i])
-    door.append([2,i])
-for i in range(N):
-    for j in range(i+1,N):
-#         door.append([5,i,j])
-        door.append([5,j,i])
+door=[];h_door=[];l=2
+how_variation=0 #0 McLachlan 1 time-dependent
+#the first 0x,1y,2z,3xx,4yy,5zz;the second num/ctrl+num
+for p in range(l):
+    for i in range(N):
+        door.append([2,i])
+    for i in range(N-1):
+        door.append([3,i,i+1])
+    for i in range(N-1):
+        door.append([4,i,i+1])
+    for i in range(N-1):
+        door.append([5,i,i+1])
+
 M=len(door)
 
 for i in range(N):
@@ -28,13 +32,14 @@ for i in range(N-1):
     h.append(-J);h_door.append([3,i,i+1])
     h.append(-J);h_door.append([4,i,i+1])
     h.append(U);h_door.append([5,i,i+1])
-NH=N
+NH=len(h)
 
 state=np.zeros(1<<N)
 for i in range(1<<N):
     state[i]=random.random()
     r+=state[i]*state[i];
 state=state/math.sqrt(r)
+# state=np.zeros(1<<N);state[0]=1
 
 def up_to_matrixx(k,a,b,c,d):
     I2=np.array([[1,0],[0,1]])*(1+0j);K=np.array([[a,b],[c,d]])*(1+0j);um=I2;
@@ -61,11 +66,14 @@ def R_gate(k):
     if door[k][0]==2:
         c.rz(door[k][1]+1,theta=ODE_theta[k])
     if door[k][0]==3:
-        c.crx(door[k][1]+1,door[k][2]+1,theta=ODE_theta[k])
+        c.rxx(door[k][1]+1,door[k][2]+1,theta=ODE_theta[k])
+#         c.crx(door[k][1]+1,door[k][2]+1,theta=ODE_theta[k])
     if door[k][0]==4:
-        c.cry(door[k][1]+1,door[k][2]+1,theta=ODE_theta[k])
+        c.ryy(door[k][1]+1,door[k][2]+1,theta=ODE_theta[k])
+#         c.cry(door[k][1]+1,door[k][2]+1,theta=ODE_theta[k])
     if door[k][0]==5:
-        c.crz(door[k][1]+1,door[k][2]+1,theta=ODE_theta[k])
+        c.rzz(door[k][1]+1,door[k][2]+1,theta=ODE_theta[k])
+#         c.crz(door[k][1]+1,door[k][2]+1,theta=ODE_theta[k])
 
 def U_gate(k):
     if door[k][0]==0:
@@ -75,11 +83,14 @@ def U_gate(k):
     if door[k][0]==2:
         c.cz(0,door[k][1]+1)
     if door[k][0]==3:
-        c.multicontrol(0,door[k][1]+1,door[k][2]+1,ctrl=[0,door[k][1]+1],unitary=tc.gates._x_matrix)
+        c.multicontrol(0,door[k][1]+1,door[k][2]+1,ctrl=[0],unitary=tc.gates._xx_matrix)
+#         c.multicontrol(0,door[k][1]+1,door[k][2]+1,ctrl=[0,door[k][1]+1],unitary=tc.gates._x_matrix)
     if door[k][0]==4:
-        c.multicontrol(0,door[k][1]+1,door[k][2]+1,ctrl=[0,door[k][1]+1],unitary=tc.gates._y_matrix)
+        c.multicontrol(0,door[k][1]+1,door[k][2]+1,ctrl=[0],unitary=tc.gates._yy_matrix)
+#         c.multicontrol(0,door[k][1]+1,door[k][2]+1,ctrl=[0,door[k][1]+1],unitary=tc.gates._y_matrix)
     if door[k][0]==5:
-        c.multicontrol(0,door[k][1]+1,door[k][2]+1,ctrl=[0,door[k][1]+1],unitary=tc.gates._z_matrix)
+        c.multicontrol(0,door[k][1]+1,door[k][2]+1,ctrl=[0],unitary=tc.gates._zz_matrix)
+#         c.multicontrol(0,door[k][1]+1,door[k][2]+1,ctrl=[0,door[k][1]+1],unitary=tc.gates._z_matrix)
 
 def H_gate(q):
     if h_door[q][0]==0:
@@ -129,11 +140,11 @@ def simulation():
         if door[k][0]==2:
             c.rz(door[k][1],theta=ODE_theta[k])
         if door[k][0]==3:
-            c.crx(door[k][1],door[k][2],theta=ODE_theta[k])
+            c.rxx(door[k][1],door[k][2],theta=ODE_theta[k])
         if door[k][0]==4:
-            c.cry(door[k][1],door[k][2],theta=ODE_theta[k])
+            c.ryy(door[k][1],door[k][2],theta=ODE_theta[k])
         if door[k][0]==5:
-            c.crz(door[k][1],door[k][2],theta=ODE_theta[k])
+            c.rzz(door[k][1],door[k][2],theta=ODE_theta[k])
     
 f=np.ones(M)*(-0.5j)
 ODE_theta=np.zeros(M)
@@ -141,10 +152,16 @@ A=np.zeros((M,M));C=np.zeros(M)
 for T in range(int(t/dt)):
     for k in range(M):
         for q in range(M):
-            find_ACkq(abs(f[k]*f[q]),np.angle(f[q])-np.angle(f[k]),k,q,0)
+            if how_variation==0:
+                find_ACkq(abs(f[k]*f[q]),np.angle(f[q])-np.angle(f[k]),k,q,0)
+            if how_variation==1:
+                find_ACkq(abs(f[k]*f[q]),np.angle(f[q])-np.angle(f[k])-math.pi/2,k,q,0)
     for k in range(M):
         for q in range(NH):
-            find_ACkq(abs(f[k]*h[q]),np.angle(h[q])-np.angle(f[k])-math.pi/2,k,q,1)
+            if how_variation==0:
+                find_ACkq(abs(f[k]*h[q]),np.angle(h[q])-np.angle(f[k])-math.pi/2,k,q,1)
+            if how_variation==1:
+                find_ACkq(-abs(f[k]*h[q]),np.angle(h[q])-np.angle(f[k]),k,q,1)
     ODE_dtheta=np.linalg.pinv(A).dot(C)
     print(ODE_dtheta)
     for i in range(M):
@@ -154,6 +171,7 @@ for T in range(int(t/dt)):
     ep=expm(-1j*H*(T+1)*dt)@state
     L_num.append(np.real(np.array(ep.conj().T@up_to_matrixx(1,0,1,1,0)@ep)).tolist())
     x_value.append((T+1)*dt)
+    print([T,L_num[T]-L_var[T]])
 
 plt.plot(x_value,L_var,color='green')
 plt.plot(x_value,L_num,color='red')
